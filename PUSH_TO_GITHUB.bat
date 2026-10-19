@@ -7,22 +7,22 @@ echo   🚀 رفع منظومة System Tree House إلى GitHub بنقرة وا�
 echo =====================================================================
 echo.
 echo الحساب المسجل: abdelrahmanibrahimattia-debug
-echo المستودع:     https://github.com/abdelrahmanibrahimattia-debug/system-tree-house
+echo المستودع:     https://github.com/abdelrahmanibrahimattia-debug/TREE-HOUSE-SMART
 echo.
 
 git remote remove origin >nul 2>&1
-git remote add origin https://github.com/abdelrahmanibrahimattia-debug/system-tree-house.git
+git remote add origin https://github.com/abdelrahmanibrahimattia-debug/TREE-HOUSE-SMART.git
 git branch -M main
 
 echo ⏳ جاري الرفع لـ GitHub...
-git push -u origin main
+git push -u origin main --force
 
 if %errorlevel% equ 0 (
   echo.
   echo ✅ تم الرفع بنجاح!
-  echo الرابط: https://github.com/abdelrahmanibrahimattia-debug/system-tree-house
+  echo الرابط: https://github.com/abdelrahmanibrahimattia-debug/TREE-HOUSE-SMART
   timeout /t 2 >nul
-  start https://github.com/abdelrahmanibrahimattia-debug/system-tree-house
+  start https://github.com/abdelrahmanibrahimattia-debug/TREE-HOUSE-SMART
 ) else (
   echo.
   echo ⚠️ تأكد من إنشاء المستودع أولاً: https://github.com/new
