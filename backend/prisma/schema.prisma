@@ -1,0 +1,368 @@
+// Prisma Schema for System Tree House
+// Supports SQLite for local ultra-fast zero-config development
+// and PostgreSQL for production deployment.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String      @id @default(uuid())
+  code              String      @unique
+  name              String
+  email             String      @unique
+  passwordHash      String
+  role              String      @default("EMPLOYEE") // OWNER, ADMIN, ENGINEER, ACCOUNTANT, SUPERVISOR, EMPLOYEE
+  customPermissions String?     // JSON string containing granular permissions: { "crm.view": true, "contracts.approve": false }
+  accountStatus     String      @default("ACTIVE")   // ACTIVE, SUSPENDED, PENDING
+  phone             String?
+  salary            Float?
+  avatarUrl         String?
+  lastLoginAt       DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  auditLogs         AuditLog[]
+
+  @@index([role])
+  @@index([accountStatus])
+}
+
+model Customer {
+  id                       String         @id @default(uuid())
+  code                     String         @unique
+  name                     String
+  phone                    String
+  secondaryPhone           String?
+  nationalId               String?
+  address                  String?
+  contractTypes            String         // JSON array: ["الفرش كامل", "مطبخ", "دريسنج", "غرف", "وحدات حمام"]
+  status                   String         @default("جديد") // جديد, تمت المعاينة, جاري التصميم, تم التعاقد, مرحلة التوريد, تم التسليم, ملغي
+  assignedEngineer         String?        // مهندس المعاينة
+  assignedContractEngineer String?        // مهندس التعاقد
+  siteSupervisor           String?        // مشرف الموقع
+  notes                    String?
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+
+  inspections              Inspection[]
+  checks                   Check[]
+  designs                  Design[]
+  quotations               Quotation[]
+  contracts                Contract[]
+  payments                 Payment[]
+  supplies                 SupplyDelivery[]
+  appliances               Appliance[]
+  interviews               Interview[]
+  tasks                    Task[]
+
+  @@index([phone])
+  @@index([status])
+}
+
+model Inspection {
+  id             String    @id @default(uuid())
+  code           String    @unique
+  customerId     String
+  customerCode   String
+  date           String
+  location       String?
+  responsible    String?
+  status         String    @default("مكتملة")
+  contractType   String    @default("الفرش كامل") // الفرش كامل, مطبخ, دريسنج, غرف, وحدات حمام
+  notes          String?
+  mediaFiles     String?   // JSON array of uploaded photos/videos: [{ name, url, mimeType, size }]
+  createdAt      DateTime  @default(now())
+  customer       Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerCode])
+}
+
+model Check {
+  id             String    @id @default(uuid())
+  code           String    @unique
+  customerId     String
+  customerCode   String
+  date           String
+  location       String?
+  responsible    String?
+  status         String    @default("معتمد")
+  contractType   String    @default("الفرش كامل")
+  notes          String?
+  fileId         String?
+  fileName       String?
+  fileUrl        String?
+  mimeType       String?
+  createdAt      DateTime  @default(now())
+  customer       Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerCode])
+}
+
+model Design {
+  id             String    @id @default(uuid())
+  code           String    @unique
+  customerId     String
+  customerCode   String
+  title          String
+  contractType   String    @default("الفرش كامل")
+  fileUrl        String?
+  thumbnailUrl   String?
+  status         String    @default("جاري العمل") // جاري العمل, تم العرض للعميل, معتمد, مطلوب تعديل
+  revisionNumber Int       @default(1)
+  designer       String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  customer       Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerCode])
+}
+
+model Quotation {
+  id             String     @id @default(uuid())
+  code           String     @unique
+  customerId     String
+  customerCode   String
+  contractType   String     // الفرش كامل, مطبخ, دريسنج, غرف, وحدات حمام
+  title          String?
+  totalAmount    Float      @default(0.0)
+  discount       Float      @default(0.0)
+  netAmount      Float      @default(0.0)
+  items          String     // JSON array of detailed BoQ items (description, unit, quantity, price, total)
+  status         String     @default("مسودة") // مسودة, معتمدة, تم تحويلها لعقد, ملغية
+  approvedBy     String?
+  version        Int        @default(1)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  customer       Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contracts      Contract[]
+
+  @@index([customerCode])
+  @@index([contractType])
+}
+
+model Contract {
+  id              String        @id @default(uuid())
+  contractNumber  String        @unique
+  customerId      String
+  customerCode    String
+  quotationId     String?
+  contractType    String        // الفرش كامل, مطبخ, دريسنج, غرف, وحدات حمام
+  totalAmount     Float         @default(0.0)
+  downPayment     Float         @default(0.0)
+  remainingAmount Float         @default(0.0)
+  paymentTerms    String?       // JSON array of scheduled installments
+  articles        String?       // JSON array of legal terms & conditions
+  status          String        @default("ساري") // ساري, مكتمل, ملغي
+  signedPdfUrl    String?
+  signedAt        DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  quotation       Quotation?    @relation(fields: [quotationId], references: [id], onDelete: SetNull)
+  installments    Installment[]
+  payments        Payment[]
+  workOrders      WorkOrder[]
+  supplies        SupplyDelivery[]
+
+  @@index([customerCode])
+  @@index([contractType])
+}
+
+model Installment {
+  id              String    @id @default(uuid())
+  contractId      String
+  contractNumber  String
+  customerCode    String
+  number          Int
+  dueDate         String
+  amount          Float
+  status          String    @default("غير مدفوع") // غير مدفوع, مدفوع, متأخر
+  paidAt          DateTime?
+  notes           String?
+  createdAt       DateTime  @default(now())
+
+  contract        Contract  @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractNumber])
+  @@index([customerCode])
+}
+
+model Payment {
+  id              String    @id @default(uuid())
+  receiptNumber   String    @unique
+  customerId      String
+  customerCode    String
+  contractId      String?
+  contractNumber  String?
+  type            String    // تحصيل, عهدة, مصروف
+  amount          Float
+  date            String
+  method          String    @default("نقدي") // نقدي, بنكي, فودافون كاش, شيك
+  invoiceFileUrl  String?
+  invoiceMimeType String?
+  notes           String?
+  createdBy       String
+  createdAt       DateTime  @default(now())
+
+  customer        Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contract        Contract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
+
+  @@index([customerCode])
+  @@index([type])
+}
+
+model WorkOrder {
+  id              String    @id @default(uuid())
+  orderNumber     String    @unique
+  customerId      String
+  customerCode    String
+  contractId      String
+  contractType    String
+  department      String    // تقطيع, تجميع, دهانات, تركيبات
+  status          String    @default("قيد الانتظار") // قيد الانتظار, جاري التصنيع, جاهز للتسليم, تم التركيب
+  priority        String    @default("عادية") // عاجلة, عادية, منخفضة
+  dueDate         String?
+  specs           String?   // JSON technical details
+  createdAt       DateTime  @default(now())
+
+  contract        Contract  @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([customerCode])
+}
+
+model SupplyDelivery {
+  id              String    @id @default(uuid())
+  code            String    @unique
+  customerId      String
+  customerCode    String
+  contractId      String?
+  contractNumber  String?
+  title           String
+  stage           String    // توريد أخشاب, توريد رخام, توريد أجهزة, تسليم نهائي
+  status          String    @default("قيد التجهيز") // قيد التجهيز, جاري التوريد, تم التسليم بالكامل
+  deliveryDate    String?
+  receivedBy      String?   // اسم مستلم الموقع
+  notes           String?
+  createdAt       DateTime  @default(now())
+
+  customer        Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contract        Contract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
+
+  @@index([customerCode])
+}
+
+model FinancialLedger {
+  id              String    @id @default(uuid())
+  date            String
+  empCode         String
+  empName         String
+  type            String    // عهدة, مصروف, خصم, بونص, سلفة, تسوية
+  amount          Float
+  description     String
+  status          String    @default("معتمد") // معتمد, قيد الانتظار, مرفوض
+  adminNotes      String?
+  enteredBy       String
+  createdAt       DateTime  @default(now())
+
+  @@index([empCode])
+  @@index([type])
+  @@index([date])
+}
+
+model AttendanceRecord {
+  id              String    @id @default(uuid())
+  empCode         String
+  empName         String
+  date            String
+  checkIn         String?
+  checkOut        String?
+  status          String    @default("حاضر") // حاضر, غائب, إجازة, تأخير
+  notes           String?
+  createdAt       DateTime  @default(now())
+
+  @@index([empCode])
+  @@index([date])
+}
+
+model Interview {
+  id              String    @id @default(uuid())
+  customerCode    String
+  customerName    String
+  phone           String?
+  date            String
+  interviewer     String    // مهندس المقابلة
+  contractType    String    @default("الفرش كامل")
+  status          String    @default("مكتملة") // مجدولة, مكتملة, ملغية
+  outcomeNotes    String?
+  createdAt       DateTime  @default(now())
+
+  customer        Customer  @relation(fields: [customerCode], references: [code], onDelete: Cascade)
+
+  @@index([customerCode])
+  @@index([date])
+}
+
+model Appliance {
+  id              String    @id @default(uuid())
+  customerCode    String
+  name            String    // ثلاجة, بوتاجاز, شفاط, ميكروويف, غسالة
+  type            String?   // Built-in, Freestanding
+  width           Float?
+  height          Float?
+  depth           Float?
+  quantity        Int       @default(1)
+  location        String?
+  notes           String?
+  createdAt       DateTime  @default(now())
+
+  customer        Customer  @relation(fields: [customerCode], references: [code], onDelete: Cascade)
+
+  @@index([customerCode])
+}
+
+model Task {
+  id              String    @id @default(uuid())
+  title           String
+  description     String?
+  type            String    @default("عامة")
+  priority        String    @default("عادية")
+  status          String    @default("جديدة") // جديدة, قيد التنفيذ, مكتملة, ملغية
+  dueDate         String?
+  assignee        String?
+  customerCode    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  customer        Customer? @relation(fields: [customerCode], references: [code], onDelete: SetNull)
+
+  @@index([assignee])
+  @@index([status])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  userCode    String?
+  userName    String?
+  action      String   // LOGIN, LOGOUT, CREATE, UPDATE, DELETE, EXPORT, PERMISSION_CHANGE
+  resource    String   // USERS, CUSTOMERS, CONTRACTS, BOQ, PAYMENTS, PERMISSIONS
+  resourceId  String?
+  ipAddress   String?
+  userAgent   String?
+  details     String?  // JSON string of before/after state
+  createdAt   DateTime @default(now())
+
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([action])
+  @@index([resource])
+  @@index([createdAt])
+}

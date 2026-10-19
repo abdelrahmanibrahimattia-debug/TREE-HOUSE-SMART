@@ -1,0 +1,13 @@
+{
+  "name": "System Tree House Cloud Container",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "forwardPorts": [5000, 5173],
+  "postCreateCommand": "cd backend && npm install && npx prisma generate && cd ../frontend && npm install",
+  "postStartCommand": "cd backend && npm start",
+  "portsAttributes": {
+    "5000": {
+      "label": "System Tree House App",
+      "onAutoForward": "openBrowser"
+    }
+  }
+}

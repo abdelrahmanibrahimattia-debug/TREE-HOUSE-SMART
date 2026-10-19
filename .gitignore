@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment variables & secrets
+.env
+.env.local
+.env.production
+
+# Logs
+*.log
+npm-debug.log*
+
+# Database journals & caches
+*.sqlite-journal
+*.db-journal
+.prisma/client
+
+# OS files
+.DS_Store
+Thumbs.db
